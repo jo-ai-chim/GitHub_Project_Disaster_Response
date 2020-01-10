@@ -2,6 +2,10 @@ import sys
 
 import sqlite3
 from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
+
+from textblob import TextBlob
+from time import sleep
 
 import pandas as pd
 import numpy as np
@@ -68,6 +72,20 @@ def clean_data(df):
     # Remove duplicates
     df = df.drop_duplicates()
     
+    # Add Language Column
+    df_clean['language'] = np.nan
+    df_clean = df_clean.astype({'language': 'object'})
+    for index, row in df_clean.iterrows():
+        if len(str(row['original'])) >= 3:
+            sleep(0.4)
+            var = TextBlob(str(row['original'])).detect_language()
+            df_clean.set_value(index,'language',var)
+        else:
+            df_clean.set_value(index,'language','diverse')
+    
+    # Fill the not identifiable languages with 'div'
+    df_clean = df_clean.fillna(value={'language': 'diverse'})
+    
     return df 
 
 
@@ -81,7 +99,9 @@ def save_data(df, database_filename):
     '''  
     
     engine = create_engine('sqlite:///' + database_filename)
-    df.to_sql('messages_with_cat', engine, index=False)    
+    Base = declarative_base()
+    Base.metadata.drop_all(engine)
+    df.to_sql('messages_with_cat', engine, index=False)      
 
 
 def main():
